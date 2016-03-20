@@ -9,19 +9,20 @@ TrelloTransformer.prototype = function()
 {	
 	var buildDependencyOrientatedDataSet = function(cards,lists){
 		
-		var getCardState = function(listName){
-			if (listName.toLowerCase().indexOf('blocked') === 0) {
-				return 'blocked';
-			} else if (listName.toLowerCase().indexOf('in progress') === 0) {
-				return 'in-progress';
-			} else if (listName.toLowerCase().indexOf('backlog') != -1) {
-				return 'backlog';
-			} else if (listName.toLowerCase().indexOf('done') === 0) {
-				return 'done';
-			} else if (listName.toLowerCase().indexOf('accepted') === 0) {
-				return 'accepted';
-			}
-			return '';
+		var getCardBgColor = function(labels){
+			var retVal = '';
+			var labelsEnum = Enumerable.From(labels);
+			var matched = false;
+			labelsEnum.ForEach(function(label){
+				var match = label.name.match('\{(#[a-f0-9]{6})( DONE)?\}');
+				if(match){
+					if(!matched || typeof match[2] !== 'undefined'){
+						retVal = match[1];
+						matched = true;
+					}
+				}
+			});
+			return retVal;
 		};
 		
 		var listsEnum = Enumerable.From(lists[0]);
@@ -30,7 +31,7 @@ TrelloTransformer.prototype = function()
 		listsEnum.ForEach(function(list){
 			list.nodeType = 'List';
 			cardsEnum.Where(function(card){ return card.idList === list.id; }).ForEach(function(card, index){
-				card.state = getCardState(list.name);
+				card.bgcolor = getCardBgColor(card.labels);
 			});
 		});
 		

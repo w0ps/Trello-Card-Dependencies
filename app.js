@@ -1,7 +1,7 @@
 var TrelloInvisDepApp = function(){
 
 	this.baseTrelloUrl = 'https://api.trello.com/1/';
-	this.trelloKey = '&key=30ba6112a9c864cb0ef59ee7f62478d7&token=';
+	this.trelloKey = '30ba6112a9c864cb0ef59ee7f62478d7';
 	this.boardShortlink = window.location.search.match(/boardShortLink\=(.+)&/)[1];
 	this.trelloToken = window.location.search.match(/trelloToken\=(.+)/)[1];
 	Trello.setToken(this.trelloToken);
@@ -25,9 +25,10 @@ TrelloInvisDepApp.prototype = function(){
 
 	var loadDataFromTrello = function()
 	{
-		var cardApiUrl = this.baseTrelloUrl + this.board +'/cards?fields=name,shortLink,idList,desc' + this.trelloKey + this.trelloToken;
-		var listApiUrl = this.baseTrelloUrl + this.board +'/lists?fields=name,shortLink,idList' + this.trelloKey + this.trelloToken;
-		return $.when($.ajax({url : cardApiUrl}),$.ajax({url : listApiUrl}));
+		var cardApiUrl = this.baseTrelloUrl + this.board +'/cards?fields=name,shortLink,idList,desc,labels&key=' + this.trelloKey + '&token=' + this.trelloToken;
+		var listApiUrl = this.baseTrelloUrl + this.board +'/lists?fields=name,shortLink,idList&key=' + this.trelloKey + '&token=' + this.trelloToken;
+		var labelApiUrl = this.baseTrelloUrl + this.board + '/labels?key=' + this.trelloKey +'&token=' + this.trelloToken;
+		return $.when($.ajax({url : cardApiUrl}),$.ajax({url : listApiUrl}), $.ajax({url : labelApiUrl}));
 	};
 
 	var setupChildCommunication = function()
@@ -82,9 +83,11 @@ TrelloInvisDepApp.prototype = function(){
 
 	var updateDataFromTrello = function()
 	{
-		this.loadDataFromTrello().done(function(cardResult,listResult){
+		this.loadDataFromTrello().done(function(cardResult,listResult, labelResult){
 			var cards = cardResult;
 			var lists = listResult;
+			var labels = labelResult;
+			buildLegend(labelResult);
 			var dataset = new TrelloTransformer().buildDependencyOrientatedDataSet(cards,lists);
 			this.invis.updateGraph(this.settings,dataset);
 		}.bind(this));
@@ -100,6 +103,9 @@ TrelloInvisDepApp.prototype = function(){
 			$('.loadingMessage').hide();
 			var cards = results[0];
 			var lists = results[1];
+			var labels = results[2];
+
+			buildLegend(labels);
 
 			var dataset = new TrelloTransformer().buildDependencyOrientatedDataSet(cards,lists);
 
@@ -130,7 +136,6 @@ TrelloInvisDepApp.prototype = function(){
 			$('#cancelDependencyButton').click(function(){this.resetDependencyFlow();}.bind(this));
 
 			$('#removeAllDependencies').click(function(){this.removeAllDependencies(this.settings,dataset);}.bind(this));
-
 
 			}.bind(this));
 
@@ -333,7 +338,7 @@ TrelloInvisDepApp.prototype = function(){
 						}
 					}
 
-					card.addClass(d.state);
+					card.css("background", d.bgcolor);
 
 					//return convertTemplateToHtml($template);
 					return convertTemplateToHtml(card[0].outerHTML);
@@ -357,6 +362,33 @@ TrelloInvisDepApp.prototype = function(){
 
 				};
 		return settings;
+	};
+
+	buildLegend = function(labels){
+		var added = false;
+		var legend = $('.keys');
+		if(labels[0].length > 0){
+			var labelsEnum = Enumerable.From(labels[0]);
+			var lis = [];
+			labelsEnum.ForEach(function(label){
+				var match = label.name.match('(.*)?\{(#[a-f0-9]{6})( DONE)?\}');
+				if(match){
+					var li = $("<li>" + match[1] + "</li>");
+					li.css("background", match[2]);
+					legend.append(li);
+					added = true;
+				}
+			});
+		}
+		if(!added){
+			legend.empty();
+			legend.append('<li>To colorize the cards add a label with {#color_hexcode} to the card.</li>');
+			legend.append('<li>the first matching color will be displayed</li>');
+			legend.append('<li>example labelname: "Foobar {#ff00ff}"</li>');
+			legend.append('<li>special: "{#ff00ff DONE}"</li>');
+			legend.append('<li>if the DONE is present this color will be displayed</li>');
+		}
+		return null;
 	};
 
 	return {
