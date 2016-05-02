@@ -310,39 +310,35 @@ TrelloInvisDepApp.prototype = function(){
 				}
 
 				settings.nodeSettings.buildNode = function(d){
-				if(d.nodeType == 'Card')
-				{
+					if( d.nodeType == 'Card') {
+					//Find in parent, name without '(0-9)' / '[0-9]'
+					var nameWithoutStoryPoints = d.name.replace( /([\(|\[[0-9]+[^[\)\]][\)\]])/g, '' ).trim(),
+							cards = findCards( nameWithoutStoryPoints );
 
-					var findCard = function(name){
-						return cardViews.find(".list-card").filter(":has(a:contains('"+name+"'))");
+					if( !cards.length ) {
+						console.error( 'card could not be found: ' + d.name + ', avoid using (5) or such for something other than story points' );
+						return;
 					}
 
-					//Find in parent
-					var card = findCard(d.name);
-					if(card.length === 0)
-					{
-						var storyPointsMatch = d.name.match(/(\(|\[).+(\)|\])(.+)/);
-						if(storyPointsMatch !== null)
-						{
-							var nameWithoutStoryPoints = storyPointsMatch[3];
-							card = findCard(nameWithoutStoryPoints);
-						}
-						else
-						{
-							storyPointsMatch = d.name.match(/(.+)\W\(\?\)/)
-							if(storyPointsMatch !== null)
-							{
-								nameWithoutStoryPoints = storyPointsMatch[1]
-								card = findCard(nameWithoutStoryPoints);
-							}
-						}
-					}
-
-					card.css("background", d.bgcolor);
+					cards[ 0 ].style.background = d.bgcolor;
 
 					//return convertTemplateToHtml($template);
-					return convertTemplateToHtml(card[0].outerHTML);
+					return convertTemplateToHtml( cards[ 0 ].outerHTML );
 
+				}
+
+				function findCards(name){
+					return cardViews.find( '.list-card' ).toArray().filter( function( card ) {
+						var anchor = card.querySelector( 'a' ),
+								anchorCopied = anchor.cloneNode();
+
+						anchorCopied.innerHTML = anchor.innerHTML;
+
+						// get rid of all children containing storypoints so we can get proper title
+						while( anchorCopied.children.length ) anchorCopied.removeChild( anchorCopied.children[ 0 ] );
+
+						return anchorCopied.textContent === name;
+					} );
 				}
 
 				if(d.nodeType == 'List')
